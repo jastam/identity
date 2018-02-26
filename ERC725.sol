@@ -40,11 +40,11 @@ contract ERC725 is ERC735 {
     /**
      * One key per purpose
      */
-    struct Key {
-        uint256 purpose; //e.g. 1 = MANAGEMENT, 2 = ACTION, 3 = CLAIM, 4 = ENCRYPTION, etc.
-        uint256 keyType; // e.g. 1 = ECDSA, 2 = RSA, etc.
-        bytes32 key;
-    }
+    // struct Key {
+    //     uint256 purpose; //e.g. 1 = MANAGEMENT, 2 = ACTION, 3 = CLAIM, 4 = ENCRYPTION, etc.
+    //     uint256 keyType; // e.g. 1 = ECDSA, 2 = RSA, etc.
+    //     bytes32 key;
+    // }
 
     /** 
      * Returns the key data, if hold by the identity. 
