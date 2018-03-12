@@ -24,14 +24,7 @@ contract Identity is ERC725, ClaimHolder {
     }
 
     function Identity() public {
-        bytes32 key = keccak256(msg.sender);
-
-        keysByKey[key].key = key;
-        keysByKey[key].keyType = KEYTYPE_ECDSA;
-        keysByKey[key].purposes.push(MANAGEMENT_KEY);
-
-        keysByPurpose[MANAGEMENT_KEY].push(key);
-
+        addKey(keccak256(msg.sender), MANAGEMENT_KEY, KEYTYPE_ECDSA);
     }
 
     function getKey(bytes32 _key, uint256 _purpose) public constant returns(uint256 purpose, uint256 keyType, bytes32 key) {
