@@ -22,6 +22,7 @@ contract ERC735 {
      */
     event ClaimChanged(bytes32 indexed claimId, uint256 indexed claimType, uint256 scheme, address indexed issuer, bytes signature, bytes data, string uri);
 
+/*
     struct Claim {
         uint256 claimType; // The number which represents the type of claim. (e.g. 1 biometric, 2 residence)
         uint256 scheme; // The scheme with which this claim SHOULD be verified or how it should be processed.
@@ -30,6 +31,7 @@ contract ERC735 {
         bytes data; // The hash of the claim data, sitting in another location, a bit-mask, call data, or actual data based on the claim scheme.
         string uri; // The location of the claim, this can be HTTP links, swarm hashes, IPFS hashes, and such.
     }
+*/
 
     /**
      * Returns a claim by ID.
@@ -58,7 +60,7 @@ contract ERC735 {
      * Triggers if the claim is new Event and is added: ClaimAdded
      * Triggers if the claim index existed Event: ClaimChanged
      */
-    function addClaim(uint256 _claimType, uint256 _scheme, address issuer, bytes _signature, bytes _data, string _uri) public returns (uint256 claimRequestId);
+    function addClaim(uint256 _claimType, uint256 _scheme, address _issuer, bytes _signature, bytes _data, string _uri) public returns (uint256 claimRequestId);
 
     /**
      * Removes a claim.
