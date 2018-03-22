@@ -44,7 +44,7 @@ contract Identity is ERC725, ClaimHolder {
     mapping(uint256 => bytes32[]) claimsByType; // uint256 type => bytes32[] Claim
 
     struct Request {
-        Transaction Transaction;
+        Transaction transaction;
         Claim claim;
     }
     mapping(uint256 => Request) requestsById;
@@ -134,16 +134,16 @@ contract Identity is ERC725, ClaimHolder {
     }
 
     function execute(address _to, uint256 _value, bytes _data) public returns (uint256 executionId) {
-        Transaction storage Transaction = requestsById[++latestRequestId].Transaction;
-        Transaction.to = _to;
-        Transaction.value = _value;
-        Transaction.data = _data;
+        Transaction storage transaction = requestsById[++latestRequestId].transaction;
+        transaction.to = _to;
+        transaction.value = _value;
+        transaction.data = _data;
 
-        ExecutionRequested(latestRequestId, Transaction.to, Transaction.value, Transaction.data);
+        ExecutionRequested(latestRequestId, transaction.to, transaction.value, transaction.data);
 
         if (isManagement(msg.sender)) {
-            Transaction.to.call.value(Transaction.value)(Transaction.data);
-            Executed(latestRequestId, Transaction.to, Transaction.value, Transaction.data);
+            transaction.to.call.value(transaction.value)(transaction.data);
+            Executed(latestRequestId, transaction.to, transaction.value, transaction.data);
         }
 
         return latestRequestId;
@@ -160,9 +160,9 @@ contract Identity is ERC725, ClaimHolder {
                 claimsById[claim.claimId] = claim;
                 ClaimAdded(claim.claimId, claim.claimType, claim.scheme, claim.issuer, claim.signature, claim.data, claim.uri);
             } else {
-                Transaction storage Transaction = requestsById[_id].Transaction;
-                Transaction.to.call.value(Transaction.value)(Transaction.data);
-                Executed(_id, Transaction.to, Transaction.value, Transaction.data);
+                Transaction storage transaction = requestsById[_id].transaction;
+                transaction.to.call.value(transaction.value)(transaction.data);
+                Executed(_id, transaction.to, transaction.value, transaction.data);
             }
         }
 
