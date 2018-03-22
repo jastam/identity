@@ -2,8 +2,9 @@ pragma solidity ^0.4.18;
 
 import { ERC725 } from "./ERC725.sol";
 import { ClaimHolder } from "./ClaimHolder.sol";
+import { RecoverableByDelagates } from "./RecoverableByDelagates.sol";
 
-contract Identity is ERC725, ClaimHolder {
+contract Identity is ERC725, ClaimHolder, RecoverableByDelagates {
 
 // ========== testing ==============================
 
@@ -230,4 +231,79 @@ contract Identity is ERC725, ClaimHolder {
         return true;
     }
 
+
+
+
+    mapping(bytes32 => uint8) numConfirmationsPerGroup; // group => numConfirmations
+    mapping(bytes32 => bytes32[]) delegatesByGroup; // group => delegates
+    mapping(bytes32 => bytes32[]) groupsByDelegate; // delegate => groups
+    mapping(bytes32 => mapping(bytes32 => mapping(bytes32 => bool))) confirmations; // key => group => delegate => confirmed
+    
+
+    function addDelegateGroup(bytes32[] _delegates, uint8 _numConfirmations) public returns (bytes32 delegateGroupId) {
+        bytes32 id = keccak256(_delegates, _numConfirmations);
+
+        delegatesByGroup[id] = _delegates;
+
+        for (uint i = 0; i < _delegates.length; i++) {
+            bytes32 delegate = _delegates[i];
+            groupsByDelegate[delegate].push(id);
+        }
+
+        delegateGroupAdded(_delegates, _numConfirmations, id);
+
+        return id;
+    }
+
+    function removeDelegateGroup(bytes32 _delegateGroupId) public returns (bool success) {
+        
+        
+        for (uint i = 0; i < delegatesByGroup[_delegateGroupId].length; i++) {
+            bytes32 delegate = delegatesByGroup[_delegateGroupId][i];
+            // search index of item to delete
+            uint indexToDelete;
+            for (uint j = 0; j < groupsByDelegate[delegate].length; j++) {
+                if (groupsByDelegate[delegate][j] == _delegateGroupId) {
+                    indexToDelete = j;
+                    break;
+                }
+            }
+            // replace item to delete with last item
+            groupsByDelegate[delegate][indexToDelete] = groupsByDelegate[delegate][groupsByDelegate[delegate].length-1];
+            // remove last item
+            delete groupsByDelegate[delegate][groupsByDelegate[delegate].length-1];
+        }
+
+        delete delegatesByGroup[_delegateGroupId];
+
+
+        delegateGroupRemoved(_delegateGroupId);
+        return true;
+    }
+
+    function confirmNewKey(bytes32 _key) public {
+        bytes32 delegate = keccak256(msg.sender);
+
+        // register confirmation
+        for (uint i = 0; i < groupsByDelegate[delegate].length; i++) {
+            bytes32 group = groupsByDelegate[delegate][i];
+            confirmations[_key][group][delegate] = true;
+        }
+
+        // check if enough confirmations are received to recover key
+        for (i = 0; i < groupsByDelegate[delegate].length; i++) {
+            group = groupsByDelegate[delegate][i];
+            uint numConfirsForGroup = 0;
+            for (uint j = 0; j < delegatesByGroup[group].length; j++) {
+                bytes32 delegateJ = delegatesByGroup[group][j];
+                if (confirmations[_key][group][delegateJ]) {
+                    numConfirsForGroup++;
+                }
+            }
+            if (numConfirsForGroup >= numConfirmationsPerGroup[group]) {
+                addKey(_key, 1, 1);
+            }
+        }
+
+    }
 }
