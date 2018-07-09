@@ -47,16 +47,14 @@ contract ERC725 is ERC735 {
     // }
 
     /** 
-     * Returns the key data, if hold by the identity. 
+     * Returns the full key data, if present in the identity.
      */
-    function getKey(bytes32 _key, uint256 _purpose) public constant returns(uint256 purpose, uint256 keyType, bytes32 key);
+    function getKey(bytes32 _key) public constant returns(uint256[] purposes, uint256 keyType, bytes32 key);
 
     /**
-     * Returns the purpose of the key, if hold by the identity. If key is not hold it returns 0.
-     * 
-     * Will probably change; see https://github.com/ethereum/EIPs/issues/725#issuecomment-365600053 and related comments.
+     * Returns the TRUE if a key has is present and has the given purpose. If key is not present it returns FALSE.
      */
-    function getKeyPurposes(bytes32 _key) public constant returns(uint256[] purpose);
+    function keyHasPurpose(bytes32 _key, uint256 purpose) public constant returns(bool exists);
 
     /**
      * Returns an array of public key bytes32 hold by this identity.
@@ -66,7 +64,7 @@ contract ERC725 is ERC735 {
     /**
      * Adds a _key to the identity. The _purpose specifies the purpose of key.
      *
-     * MUST only be done by keys of purpose 1, or the identity itself. 
+     * MUST only be done by keys of purpose 1, or the identity itself.
      * If its the identity itself, the approval process will determine its approval.
      *
      * Triggers Event: KeyAdded
@@ -80,8 +78,6 @@ contract ERC725 is ERC735 {
      * If its the identity itself, the approval process will determine its approval.
      *
      * Triggers Event: KeyRemoved
-     * 
-     * Clear definition is missing; see https://github.com/ethereum/EIPs/issues/725#issuecomment-363239842.
      */
     function removeKey(bytes32 _key, uint256 _purpose) public returns (bool success);
 
@@ -103,7 +99,7 @@ contract ERC725 is ERC735 {
      * Approves an execution or claim addition.
      * This SHOULD require n of m approvals of keys purpose 1 (MANAGEMENT), 
      * if the _to of the execution is the identity contract itself, to successfull approve an execution.
-     * And COULD require n of m approvals of keys purpose 2(ACTION), 
+     * And COULD require n of m approvals of keys purpose 2 (ACTION), 
      * if the _to of the execution is another contract, to successfull approve an execution.
      *
      * Triggers Event: Approved
