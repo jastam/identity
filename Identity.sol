@@ -1,9 +1,8 @@
 pragma solidity ^0.4.18;
 
 import { ERC725 } from "./ERC725.sol";
-import { ClaimHolder } from "./ClaimHolder.sol";
 
-contract Identity is ERC725, ClaimHolder {
+contract Identity is ERC725 {
 
 // ========== testing ==============================
 
@@ -12,7 +11,7 @@ contract Identity is ERC725, ClaimHolder {
     event TestEvent(uint256 value);
 
     function test(uint256 value) public {
-        TestEvent(value);
+        emit TestEvent(value);
     }
 
 // ========== end testing ==============================
@@ -57,7 +56,7 @@ contract Identity is ERC725, ClaimHolder {
     }
 
     function isManagement(address addr) private view returns (bool) {
-        bytes32 hashedAddr = keccak256(addr);
+        bytes32 hashedAddr = keccak256(abi.encodePacked(addr));
         for (uint256 i = 0; i < keysByPurpose[MANAGEMENT_KEY].length; i++) {
             if (hashedAddr == keysByPurpose[MANAGEMENT_KEY][i]) {
                 return true;
@@ -68,8 +67,8 @@ contract Identity is ERC725, ClaimHolder {
 
     function() public payable { }
 
-    function Identity() public {
-        bytes32 key = keccak256(msg.sender);
+    constructor() public {
+        bytes32 key = keccak256(abi.encodePacked(msg.sender));
         uint256 purpose = MANAGEMENT_KEY;
         uint256 keyType = KEYTYPE_ECDSA;
 
@@ -79,7 +78,7 @@ contract Identity is ERC725, ClaimHolder {
 
         keysByPurpose[purpose].push(key);
 
-        KeyAdded(key, purpose, keyType);
+        emit KeyAdded(key, purpose, keyType);
     }
 
     function getKey(bytes32 _key, uint256 _purpose) public constant returns(uint256 purpose, uint256 keyType, bytes32 key) {
@@ -106,7 +105,7 @@ contract Identity is ERC725, ClaimHolder {
 
         keysByPurpose[_purpose].push(_key);
 
-        KeyAdded(_key, _purpose, _keyType);
+        emit KeyAdded(_key, _purpose, _keyType);
 
         return true;
     }
@@ -128,7 +127,7 @@ contract Identity is ERC725, ClaimHolder {
         }
         delete keysByKey[_key].purposes[i];
 
-        KeyRemoved(_key, _purpose, keysByKey[_key].keyType);
+        emit KeyRemoved(_key, _purpose, keysByKey[_key].keyType);
 
         return true;
     }
@@ -139,11 +138,12 @@ contract Identity is ERC725, ClaimHolder {
         transaction.value = _value;
         transaction.data = _data;
 
-        ExecutionRequested(latestRequestId, transaction.to, transaction.value, transaction.data);
+        emit ExecutionRequested(latestRequestId, transaction.to, transaction.value, transaction.data);
 
         if (isManagement(msg.sender)) {
-            transaction.to.call.value(transaction.value)(transaction.data);
-            Executed(latestRequestId, transaction.to, transaction.value, transaction.data);
+            if(transaction.to.call.value(transaction.value)(transaction.data)) {
+                emit Executed(latestRequestId, transaction.to, transaction.value, transaction.data);
+            }
         }
 
         return latestRequestId;
@@ -152,17 +152,18 @@ contract Identity is ERC725, ClaimHolder {
     function approve(uint256 _id, bool _approve) public returns (bool success) {
         require(isManagement(msg.sender));
 
-        Approved(_id, _approve);
+        emit Approved(_id, _approve);
 
         if (_approve) {
             if (requestsById[_id].claim.claimId != 0) {
                 Claim storage claim = requestsById[_id].claim;
                 claimsById[claim.claimId] = claim;
-                ClaimAdded(claim.claimId, claim.claimType, claim.scheme, claim.issuer, claim.signature, claim.data, claim.uri);
+                emit ClaimAdded(claim.claimId, claim.claimType, claim.scheme, claim.issuer, claim.signature, claim.data, claim.uri);
             } else {
                 Transaction storage transaction = requestsById[_id].transaction;
-                transaction.to.call.value(transaction.value)(transaction.data);
-                Executed(_id, transaction.to, transaction.value, transaction.data);
+                if(transaction.to.call.value(transaction.value)(transaction.data)) {
+                    emit Executed(_id, transaction.to, transaction.value, transaction.data);
+                }
             }
         }
 
@@ -180,11 +181,11 @@ contract Identity is ERC725, ClaimHolder {
 
     function addClaim(uint256 _claimType, uint256 _scheme, address _issuer, bytes _signature, bytes _data, string _uri) public returns (uint256 claimRequestId) {
         Claim storage claim = requestsById[++latestRequestId].claim;
-        claim.claimId = keccak256(msg.sender, _claimType);
+        claim.claimId = keccak256(abi.encodePacked(msg.sender, _claimType));
         claim.claimType = _claimType;
         claim.scheme = _scheme;
         claim.issuer = _issuer;
-        claim.signature = _signature; // keccak256(this, _claimType, _data);
+        claim.signature = _signature; // keccak256(abi.encodePacked(this, _claimType, _data));
         claim.data = _data;
         claim.uri = _uri;
 
@@ -194,12 +195,12 @@ contract Identity is ERC725, ClaimHolder {
             claimsById[claim.claimId] = claim;
 
             if (isExistingClaim) {
-                ClaimChanged(claim.claimId, claim.claimType, claim.scheme, claim.issuer, claim.signature, claim.data, claim.uri);
+                emit ClaimChanged(claim.claimId, claim.claimType, claim.scheme, claim.issuer, claim.signature, claim.data, claim.uri);
             } else {
-                ClaimAdded(claim.claimId, claim.claimType, claim.scheme, claim.issuer, claim.signature, claim.data, claim.uri);
+                emit ClaimAdded(claim.claimId, claim.claimType, claim.scheme, claim.issuer, claim.signature, claim.data, claim.uri);
             }
         } else {
-            ClaimRequested(latestRequestId, claim.claimType, claim.scheme, claim.issuer, claim.signature, claim.data, claim.uri);
+            emit ClaimRequested(latestRequestId, claim.claimType, claim.scheme, claim.issuer, claim.signature, claim.data, claim.uri);
         }
 
         return latestRequestId;
@@ -225,7 +226,7 @@ contract Identity is ERC725, ClaimHolder {
         // remove claim from claimsById
         delete claimsById[_claimId];
 
-        ClaimRemoved(claim.claimId, claim.claimType, claim.scheme, claim.issuer, claim.signature, claim.data, claim.uri);
+        emit ClaimRemoved(claim.claimId, claim.claimType, claim.scheme, claim.issuer, claim.signature, claim.data, claim.uri);
 
         return true;
     }
