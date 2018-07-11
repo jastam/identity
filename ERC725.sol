@@ -54,7 +54,7 @@ contract ERC725 is ERC735 {
     /**
      * Returns the TRUE if a key has is present and has the given purpose. If key is not present it returns FALSE.
      */
-    function keyHasPurpose(bytes32 _key, uint256 purpose) public constant returns(bool exists);
+    function keyHasPurpose(bytes32 _key, uint256 _purpose) public constant returns(bool exists);
 
     /**
      * Returns an array of public key bytes32 hold by this identity.

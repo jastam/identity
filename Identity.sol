@@ -5,7 +5,7 @@ import { ERC725 } from "./ERC725.sol";
 contract Identity is ERC725 {
 
 // ========== testing ==============================
-
+/*
     event TestAddress(address value);
 
     event TestEvent(uint256 value);
@@ -13,7 +13,7 @@ contract Identity is ERC725 {
     function test(uint256 value) public {
         emit TestEvent(value);
     }
-
+*/
 // ========== end testing ==============================
 
     struct Key {
@@ -81,17 +81,18 @@ contract Identity is ERC725 {
         emit KeyAdded(key, purpose, keyType);
     }
 
-    function getKey(bytes32 _key, uint256 _purpose) public constant returns(uint256 purpose, uint256 keyType, bytes32 key) {
+    function getKey(bytes32 _key) public constant returns(uint256[] purposes, uint256 keyType, bytes32 key) {
+        return (keysByKey[_key].purposes, keysByKey[_key].keyType, keysByKey[_key].key);
+    }
+
+    function keyHasPurpose(bytes32 _key, uint256 _purpose) public constant returns(bool exists) {
         Key storage tmpKey = keysByKey[_key];
         for (uint256 i = 0; i < tmpKey.purposes.length; i++) {
             if (_purpose == tmpKey.purposes[i]) {
-                return (_purpose, tmpKey.keyType, tmpKey.key);
+                return true;
             }
         }
-    }
-
-    function getKeyPurposes(bytes32 _key) public constant returns(uint256[] purpose) {
-        return keysByKey[_key].purposes;
+        return false;
     }
 
     function getKeysByPurpose(uint256 _purpose) public constant returns(bytes32[] keys) {
@@ -170,6 +171,7 @@ contract Identity is ERC725 {
         return true;
     }
 
+/*
     function getClaim(bytes32 _claimId) public constant returns(uint256 claimType, uint256 scheme, address issuer, bytes signature, bytes data, string uri) {
         Claim storage claim = claimsById[_claimId];
         return (claim.claimType, claim.scheme, claim.issuer, claim.signature, claim.data, claim.uri);
@@ -230,5 +232,5 @@ contract Identity is ERC725 {
 
         return true;
     }
-
+*/
 }
