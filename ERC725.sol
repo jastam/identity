@@ -1,8 +1,9 @@
 pragma solidity ^0.4.18;
 
-import { ERC735 } from "./ERC735.sol";
+//import { ERC735 } from "./ERC735.sol";
 
-contract ERC725 is ERC735 {
+//contract ERC725 is ERC735 {
+contract ERC725 {
 
     /**
      * MUST be triggered when addKey was successfully called.

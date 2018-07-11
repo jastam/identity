@@ -159,7 +159,7 @@ contract Identity is ERC725 {
             if (requestsById[_id].claim.claimId != 0) {
                 Claim storage claim = requestsById[_id].claim;
                 claimsById[claim.claimId] = claim;
-                emit ClaimAdded(claim.claimId, claim.claimType, claim.scheme, claim.issuer, claim.signature, claim.data, claim.uri);
+                //emit ClaimAdded(claim.claimId, claim.claimType, claim.scheme, claim.issuer, claim.signature, claim.data, claim.uri);
             } else {
                 Transaction storage transaction = requestsById[_id].transaction;
                 if(transaction.to.call.value(transaction.value)(transaction.data)) {
