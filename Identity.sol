@@ -37,10 +37,16 @@ contract Identity is ERC725 {
     mapping(uint256 => Request) requestsById;
     uint256 latestRequestId = 0;
 
+    struct Record {
+        string value;
+        uint256 keyIndex;
+    }
+    mapping(bytes32 => Record) records;
+    bytes32[] recordKeys;
+
     modifier onlyManager() {
-        if (isManagement(msg.sender)) {
-            _;
-        }
+        require(isManagement(msg.sender));
+        _;
     }
 
     function isManagement(address addr) private view returns (bool) {
@@ -87,7 +93,7 @@ contract Identity is ERC725 {
         return keysByPurpose[_purpose];
     }
 
-    function addKey(bytes32 _key, uint256 _purpose, uint256 _keyType) public onlyManager returns (bool success) {
+    function addKey(bytes32 _key, uint256 _purpose, uint256 _keyType) public onlyManager() returns (bool success) {
         keysByKey[_key].key = _key;
         keysByKey[_key].keyType = _keyType;
         keysByKey[_key].purposes.push(_purpose);
@@ -99,7 +105,7 @@ contract Identity is ERC725 {
         return true;
     }
 
-    function removeKey(bytes32 _key, uint256 _purpose) public onlyManager returns (bool success) {
+    function removeKey(bytes32 _key, uint256 _purpose) public onlyManager() returns (bool success) {
         // remove key from keysByPurpose[_purpose]
         for (uint256 i = 0; i < keysByPurpose[_purpose].length; i++) {
             if (_key == keysByPurpose[_purpose][i]) {
@@ -157,6 +163,29 @@ contract Identity is ERC725 {
         }
 
         return true;
+    }
+
+    function setRecord(bytes32 _key, string _value) public /*onlyManager()*/ returns (bool success) {
+        records[_key].value = _value;
+        if (records[_key].keyIndex == 0) {
+            records[_key].keyIndex = recordKeys.length;
+            recordKeys.push(_key);
+        }
+        return true;
+    }
+    
+    function unSetRecord(bytes32 _key) public /*onlyManager()*/ returns (bool success) {
+        delete recordKeys[records[_key].keyIndex];
+        delete records[_key];
+        return true;
+    }
+
+    function getRecord(bytes32 _key) public view returns (string value) {
+        return records[_key].value;
+    }
+
+    function getRecordKeys() public view returns (bytes32[] keys) {
+        return recordKeys;
     }
 
 /*
