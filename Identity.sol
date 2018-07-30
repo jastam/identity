@@ -165,7 +165,7 @@ contract Identity is ERC725 {
         return true;
     }
 
-    function setRecord(bytes32 _key, string _value) public /*onlyManager()*/ returns (bool success) {
+    function setRecord(bytes32 _key, string _value) public onlyManager() returns (bool success) {
         records[_key].value = _value;
         if (records[_key].keyIndex == 0) {
             records[_key].keyIndex = recordKeys.length;
@@ -174,7 +174,7 @@ contract Identity is ERC725 {
         return true;
     }
     
-    function unSetRecord(bytes32 _key) public /*onlyManager()*/ returns (bool success) {
+    function unSetRecord(bytes32 _key) public onlyManager() returns (bool success) {
         delete recordKeys[records[_key].keyIndex];
         delete records[_key];
         return true;
