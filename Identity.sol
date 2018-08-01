@@ -2,6 +2,10 @@ pragma solidity ^0.4.18;
 
 import { ERC725 } from "./ERC725.sol";
 
+contract Oracle {
+    function requestRecord(bytes32 _key) public;
+}
+
 contract Identity is ERC725 {
 
     struct Key {
@@ -43,6 +47,8 @@ contract Identity is ERC725 {
     }
     mapping(bytes32 => Record) records;
     bytes32[] recordKeys;
+
+    mapping(address => mapping(bytes32 => bool)) oracleRequests;
 
     modifier onlyManager() {
         require(isManagement(msg.sender));
@@ -165,12 +171,19 @@ contract Identity is ERC725 {
         return true;
     }
 
-    function setRecord(bytes32 _key, string _value) public onlyManager() returns (bool success) {
+    function setRecord(bytes32 _key, string _value) public returns (bool success) {
+        require(isManagement(msg.sender) || oracleRequests[msg.sender][_key]);
+        
         records[_key].value = _value;
         if (records[_key].keyIndex == 0) {
             records[_key].keyIndex = recordKeys.length;
             recordKeys.push(_key);
         }
+
+        if (oracleRequests[msg.sender][_key]) {
+            oracleRequests[msg.sender][_key] = false;
+        }
+
         return true;
     }
     
@@ -186,6 +199,12 @@ contract Identity is ERC725 {
 
     function getRecordKeys() public view returns (bytes32[] keys) {
         return recordKeys;
+    }
+
+    function requestRecordFromOracle(bytes32 _key, address _oracle) public onlyManager() {
+        oracleRequests[_oracle][_key] = true;
+        Oracle oracle = Oracle(_oracle);
+        oracle.requestRecord(_key);
     }
 
 /*
