@@ -1,201 +1,91 @@
 pragma solidity ^0.4.18;
 
-import { ERC725 } from "./ERC725.sol";
+import { IdentityLib } from "./IdentityLib.sol";
 
-contract Identity is ERC725 {
+contract Identity {
 
-    struct Key {
-        uint256 keyType; // e.g. 1 = ECDSA, 2 = RSA, etc.
-        bytes32 key;
-        uint256[] purposes; //e.g. 1 = MANAGEMENT, 2 = ACTION, 3 = CLAIM, 4 = ENCRYPTION, etc.
-    }
-    mapping(bytes32 => Key) keysByKey;
-    mapping(uint256 => bytes32[]) keysByPurpose; // uint256 _purpose => bytes32[] _key
+    event KeyAdded(bytes32 indexed key, uint256 indexed purpose, uint256 indexed keyType);
+    event KeyRemoved(bytes32 indexed key, uint256 indexed purpose, uint256 indexed keyType);
+    event ExecutionRequested(uint256 indexed executionId, address indexed to, uint256 indexed value, bytes data);
+    event Executed(uint256 indexed executionId, address indexed to, uint256 indexed value, bytes data);
+    event Approved(uint256 indexed executionId, bool approved);
+    event ClaimRequested(uint256 indexed claimRequestId, uint256 indexed topic, uint256 scheme, address indexed issuer, bytes signature, bytes data, string uri);
+    event ClaimAdded(bytes32 indexed claimId, uint256 indexed topic, uint256 scheme, address indexed issuer, bytes signature, bytes data, string uri);
+    event ClaimRemoved(bytes32 indexed claimId, uint256 indexed topic, uint256 scheme, address indexed issuer, bytes signature, bytes data, string uri);
+    event ClaimChanged(bytes32 indexed claimId, uint256 indexed topic, uint256 scheme, address indexed issuer, bytes signature, bytes data, string uri);
 
-    struct Transaction {
-        address to;
-        uint256 value;
-        bytes data;
-    }
+    
+    uint256 constant MANAGEMENT_KEY = 1; // keys which can manage the identity
+    uint256 constant ACTION_KEY = 2; // keys which perform actions in this identities name (signing, logins, transactions, etc.)
+    uint256 constant CLAIM_SIGNER_KEY = 3; // signer keys, used to sign claims on other identities which need to be revokable.
+    uint256 constant ENCRYPTION_KEY = 4; // keys used to encrypt data e.g. hold in claims.
 
-    struct Claim {
-        bytes32 claimId;
-        uint256 topic;
-        uint256 scheme;
-        address issuer;
-        bytes signature;
-        bytes data;
-        string uri;
-    }
-    mapping(bytes32 => Claim) claimsById;
-    mapping(uint256 => bytes32[]) claimIdsByTopic; // uint256 type => bytes32[] Claim
+    uint256 constant KEYTYPE_ECDSA = 1;
+    uint256 constant KEYTYPE_RSA = 2;
 
-    struct Request {
-        Transaction transaction;
-        Claim claim;
-    }
-    mapping(uint256 => Request) requestsById;
-    uint256 latestRequestId = 0;
+    IdentityLib.KeyData keyData;
+    IdentityLib.ClaimData claimData;
+    IdentityLib.RequestData requestData;
 
     modifier onlyManager() {
-        if (isManagement(msg.sender)) {
+        if (IdentityLib.hasKey(keyData, msg.sender, MANAGEMENT_KEY)) {
             _;
         }
-    }
-
-    function isManagement(address addr) private view returns (bool) {
-        bytes32 hashedAddr = keccak256(abi.encodePacked(addr));
-        for (uint256 i = 0; i < keysByPurpose[MANAGEMENT_KEY].length; i++) {
-            if (hashedAddr == keysByPurpose[MANAGEMENT_KEY][i]) {
-                return true;
-            }
-        }
-        return false;
     }
 
     function() public payable { }
 
     constructor() public {
-        bytes32 key = keccak256(abi.encodePacked(msg.sender));
-        uint256 purpose = MANAGEMENT_KEY;
-        uint256 keyType = KEYTYPE_ECDSA;
-
-        keysByKey[key].key = key;
-        keysByKey[key].keyType = keyType;
-        keysByKey[key].purposes.push(purpose);
-
-        keysByPurpose[purpose].push(key);
-
-        emit KeyAdded(key, purpose, keyType);
+        IdentityLib.addKey(
+            keyData, 
+            keccak256(abi.encodePacked((msg.sender))),
+            MANAGEMENT_KEY,
+            KEYTYPE_ECDSA
+        );
     }
 
-    function getKey(bytes32 _key) public constant returns(uint256[] purposes, uint256 keyType, bytes32 key) {
-        return (keysByKey[_key].purposes, keysByKey[_key].keyType, keysByKey[_key].key);
+    function getKey(bytes32 _key) public view returns(uint256[] purposes, uint256 keyType, bytes32 key) {
+        return (keyData.keysByKey[_key].purposes, keyData.keysByKey[_key].keyType, keyData.keysByKey[_key].key);
     }
 
-    function keyHasPurpose(bytes32 _key, uint256 _purpose) public constant returns(bool exists) {
-        Key storage tmpKey = keysByKey[_key];
-        for (uint256 i = 0; i < tmpKey.purposes.length; i++) {
-            if (_purpose == tmpKey.purposes[i]) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    function getKeysByPurpose(uint256 _purpose) public constant returns(bytes32[] keys) {
-        return keysByPurpose[_purpose];
+    function keysByPurpose(uint256 _purpose) public view returns(bytes32[] keys) {
+        return keyData.keysByPurpose[_purpose];
     }
 
     function addKey(bytes32 _key, uint256 _purpose, uint256 _keyType) public onlyManager returns (bool success) {
-        keysByKey[_key].key = _key;
-        keysByKey[_key].keyType = _keyType;
-        keysByKey[_key].purposes.push(_purpose);
-
-        keysByPurpose[_purpose].push(_key);
-
-        emit KeyAdded(_key, _purpose, _keyType);
-
-        return true;
+        return IdentityLib.addKey(keyData, _key, _purpose, _keyType);
     }
 
     function removeKey(bytes32 _key, uint256 _purpose) public onlyManager returns (bool success) {
-        // remove key from keysByPurpose[_purpose]
-        for (uint256 i = 0; i < keysByPurpose[_purpose].length; i++) {
-            if (_key == keysByPurpose[_purpose][i]) {
-                break;
-            }
-        }
-        delete keysByPurpose[_purpose][i];
-
-        // remove purpose form keysByKey[_key].purposes
-        for (i = 0; i < keysByKey[_key].purposes.length; i++) {
-            if (_purpose == keysByKey[_key].purposes[i]) {
-                break;
-            }
-        }
-        delete keysByKey[_key].purposes[i];
-
-        emit KeyRemoved(_key, _purpose, keysByKey[_key].keyType);
-
-        return true;
+        return IdentityLib.removeKey(keyData, _key, _purpose);
     }
 
     function execute(address _to, uint256 _value, bytes _data) public returns (uint256 executionId) {
-        Transaction storage transaction = requestsById[++latestRequestId].transaction;
-        transaction.to = _to;
-        transaction.value = _value;
-        transaction.data = _data;
-
-        emit ExecutionRequested(latestRequestId, transaction.to, transaction.value, transaction.data);
-
-        if (isManagement(msg.sender)) {
-            if(transaction.to.call.value(transaction.value)(transaction.data)) {
-                emit Executed(latestRequestId, transaction.to, transaction.value, transaction.data);
-            }
-        }
-
-        return latestRequestId;
+        return IdentityLib.execute(keyData, requestData, _to, _value, _data);
     }
 
     function approve(uint256 _id, bool _approve) public returns (bool success) {
-        require(isManagement(msg.sender));
-
-        emit Approved(_id, _approve);
-
-        if (_approve) {
-            if (requestsById[_id].claim.claimId != 0) {
-                Claim storage claim = requestsById[_id].claim;
-                claimsById[claim.claimId] = claim;
-                //emit ClaimAdded(claim.claimId, claim.claimType, claim.scheme, claim.issuer, claim.signature, claim.data, claim.uri);
-            } else {
-                Transaction storage transaction = requestsById[_id].transaction;
-                if(transaction.to.call.value(transaction.value)(transaction.data)) {
-                    emit Executed(_id, transaction.to, transaction.value, transaction.data);
-                }
-            }
-        }
-
-        return true;
+        return IdentityLib.approve(keyData, requestData, claimData, _id, _approve);
     }
 
-/*
-    function getClaim(bytes32 _claimId) public constant returns(uint256 topic, uint256 scheme, address issuer, bytes signature, bytes data, string uri) {
-        Claim storage claim = claimsById[_claimId];
+    function getClaim(bytes32 _claimId) public view returns(uint256 topic, uint256 scheme, address issuer, bytes signature, bytes data, string uri) {
+        IdentityLib.Claim storage claim = claimData.claimsById[_claimId];
         return (claim.topic, claim.scheme, claim.issuer, claim.signature, claim.data, claim.uri);
     }
 
-    function getClaimIdsByTopic(uint256 _topic) public constant returns(bytes32[] claimIds) {
-        return claimIdsByTopic[_topic];
+    function getClaimIdsByTopic(uint256 _topic) public view returns(bytes32[] claimIds) {
+        return claimData.claimIdsByTopic[_topic];
     }
 
     function addClaim(uint256 _topic, uint256 _scheme, address _issuer, bytes _signature, bytes _data, string _uri) public returns (uint256 claimRequestId) {
-        Claim storage claim = requestsById[++latestRequestId].claim;
-        claim.claimId = keccak256(abi.encodePacked(msg.sender, _topic));
-        claim.topic = _topic;
-        claim.scheme = _scheme;
-        claim.issuer = _issuer;
-        claim.signature = _signature;
-        claim.data = _data;
-        claim.uri = _uri;
-
-        if (isManagement(msg.sender)) {
-            bool isExistingClaim = claimsById[claim.claimId].claimId == claim.claimId;
-
-            claimsById[claim.claimId] = claim;
-
-            if (isExistingClaim) {
-                emit ClaimChanged(claim.claimId, claim.topic, claim.scheme, claim.issuer, claim.signature, claim.data, claim.uri);
-            } else {
-                claimIdsByTopic[claim.topic][claimIdsByTopic[claim.topic].length] = claim.claimId;
-                emit ClaimAdded(claim.claimId, claim.topic, claim.scheme, claim.issuer, claim.signature, claim.data, claim.uri);
-            }
-        } else {
-            emit ClaimRequested(latestRequestId, claim.topic, claim.scheme, claim.issuer, claim.signature, claim.data, claim.uri);
-        }
-
-        return latestRequestId;
+        return IdentityLib.addClaim(keyData, requestData, claimData, _topic, _scheme, _issuer, _signature, _data, _uri);
     }
+
+    /*
+    function changeClaim(bytes32 _claimId, uint256 _topic, uint256 _scheme, address _issuer, bytes _signature, bytes _data, string _uri) public returns (bool success) {
+        return IdentityLib.changeClaim(keyData, requestData, claimData, _claimId, _topic, _scheme, _issuer, _signature, _data, _uri);
+    }
+    */
 
     function changeClaim(bytes32 _claimId, uint256 _topic, uint256 _scheme, address _issuer, bytes _signature, bytes _data, string _uri) public returns (bool success) {
         bytes32 claimId = keccak256(abi.encodePacked(msg.sender, _topic));
@@ -207,24 +97,7 @@ contract Identity is ERC725 {
     }
 
     function removeClaim(bytes32 _claimId) public returns (bool success) {
-        Claim memory claim = claimsById[_claimId];
-
-        require(msg.sender == claim.issuer || isManagement(msg.sender));
-
-        // remove claim from claimIdsByTopic[]
-        for (uint256 i = 0; i < claimIdsByTopic[claim.topic].length; i++) {
-            if (_claimId == claimIdsByTopic[claim.topic][i]) {
-                break;
-            }
-        }
-        delete claimIdsByTopic[claim.topic][i];
-        
-        // remove claim from claimsById
-        delete claimsById[_claimId];
-
-        emit ClaimRemoved(claim.claimId, claim.topic, claim.scheme, claim.issuer, claim.signature, claim.data, claim.uri);
-
-        return true;
+        return IdentityLib.removeClaim(keyData, requestData, claimData, _claimId);
     }
-*/
+
 }
