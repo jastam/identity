@@ -1,6 +1,8 @@
 pragma solidity ^0.4.18;
 
-import { IdentityLib } from "./IdentityLib.sol";
+import { IdentityData } from "IdentityData.sol";
+import { IdentityLib } from "IdentityLib.sol";
+import { ClaimHolderLib } from "ClaimHolderLib.sol";
 
 contract Identity {
 
@@ -23,12 +25,12 @@ contract Identity {
     uint256 constant KEYTYPE_ECDSA = 1;
     uint256 constant KEYTYPE_RSA = 2;
 
-    IdentityLib.KeyData keyData;
-    IdentityLib.ClaimData claimData;
-    IdentityLib.RequestData requestData;
+    IdentityData.KeyData keyData;
+    IdentityData.ClaimData claimData;
+    IdentityData.RequestData requestData;
 
     modifier onlyManager() {
-        if (IdentityLib.hasKey(keyData, msg.sender, MANAGEMENT_KEY)) {
+        if (IdentityData.hasKey(keyData, msg.sender, MANAGEMENT_KEY)) {
             _;
         }
     }
@@ -68,8 +70,9 @@ contract Identity {
         return IdentityLib.approve(keyData, requestData, claimData, _id, _approve);
     }
 
+
     function getClaim(bytes32 _claimId) public view returns(uint256 topic, uint256 scheme, address issuer, bytes signature, bytes data, string uri) {
-        IdentityLib.Claim storage claim = claimData.claimsById[_claimId];
+        IdentityData.Claim storage claim = claimData.claimsById[_claimId];
         return (claim.topic, claim.scheme, claim.issuer, claim.signature, claim.data, claim.uri);
     }
 
@@ -78,12 +81,12 @@ contract Identity {
     }
 
     function addClaim(uint256 _topic, uint256 _scheme, address _issuer, bytes _signature, bytes _data, string _uri) public returns (uint256 claimRequestId) {
-        return IdentityLib.addClaim(keyData, requestData, claimData, _topic, _scheme, _issuer, _signature, _data, _uri);
+        return ClaimHolderLib.addClaim(keyData, requestData, claimData, _topic, _scheme, _issuer, _signature, _data, _uri);
     }
 
     /*
     function changeClaim(bytes32 _claimId, uint256 _topic, uint256 _scheme, address _issuer, bytes _signature, bytes _data, string _uri) public returns (bool success) {
-        return IdentityLib.changeClaim(keyData, requestData, claimData, _claimId, _topic, _scheme, _issuer, _signature, _data, _uri);
+        return ClaimHolderLib.changeClaim(keyData, requestData, claimData, _claimId, _topic, _scheme, _issuer, _signature, _data, _uri);
     }
     */
 
@@ -97,7 +100,7 @@ contract Identity {
     }
 
     function removeClaim(bytes32 _claimId) public returns (bool success) {
-        return IdentityLib.removeClaim(keyData, requestData, claimData, _claimId);
+        return ClaimHolderLib.removeClaim(keyData, requestData, claimData, _claimId);
     }
 
 }
