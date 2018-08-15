@@ -41,14 +41,10 @@ library IdentityData {
         uint256 latestRequestId;
     }
 
-    function hashAddress(address addr) public pure returns (bytes32) {
-        return keccak256(abi.encodePacked(addr));
-    }
-
-    function hasKey(KeyData storage keyData, address sender, uint256 keyType) public view returns (bool) {
-        bytes32 hashedAddr = hashAddress(sender);
-        for (uint256 i = 0; i < keyData.keysByPurpose[keyType].length; i++) {
-            if (hashedAddr == keyData.keysByPurpose[keyType][i]) {
+    function hasKey(KeyData storage _keyData, address _sender, uint256 _keyType) public view returns (bool) {
+        bytes32 key = bytes32(_sender);
+        for (uint256 i = 0; i < _keyData.keysByPurpose[_keyType].length; i++) {
+            if (key == _keyData.keysByPurpose[_keyType][i]) {
                 return true;
             }
         }

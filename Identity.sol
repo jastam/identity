@@ -40,7 +40,7 @@ contract Identity {
     constructor() public {
         IdentityLib.addKey(
             keyData, 
-            keccak256(abi.encodePacked((msg.sender))),
+            bytes32(msg.sender),
             MANAGEMENT_KEY,
             KEYTYPE_ECDSA
         );
